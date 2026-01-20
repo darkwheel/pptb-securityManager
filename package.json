@@ -1,0 +1,47 @@
+{
+    "name": "@darkwheel/pptb-security-manager",
+    "version": "0.2.0",
+    "displayName": "Security Manager",
+    "description": "A comprehensive tool to management security roles and team assignments in Power Platform environments.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/darkwheel/pptb-securityManager.git"
+    },
+    "contributors": [
+        {
+            "name": "Christoph Schaffer",
+            "url": "https://github.com/darkwheel"
+        }
+    ],
+    "keywords": [
+        "powerplatform",
+        "dataverse",
+        "toolbox",
+        "pptb",
+        "security",
+        "management",
+        "roles",
+        "teams"
+    ],
+    "license": "MIT",
+    "configurations": {
+        "repository": "https://github.com/darkwheel/pptb-securityManager",
+        "website": "https://github.com/darkwheel/pptb-securityManager",
+        "iconUrl": "https://raw.githubusercontent.com/darkwheel/pptb-securityManager/refs/heads/main/icon.png",
+        "readmeUrl": "https://raw.githubusercontent.com/darkwheel/pptb-securityManager/refs/heads/main/README.md"
+    },
+    "features": {
+        "multi-connection": false
+    },
+    "scripts": {
+        "build": "tsc && npm run copy-html && npm run copy-css",
+        "copy-html": "shx cp src/index.html dist/",
+        "copy-css": "shx cp src/styles.css dist/",
+        "watch": "tsc --watch"
+    },
+    "devDependencies": {
+        "@pptb/types": "^1.0.11",
+        "typescript": "^5.0.0",
+        "shx": "^0.4.0"
+    }
+}

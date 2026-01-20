@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 Security Manager</h1>
+            <p class="subtitle">Check and manage user security permissions in Dataverse</p>
+            <div id="permission-status" class="permission-status"></div>
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    id="user-search-input" 
+                    class="search-input" 
+                    placeholder="Search by domain, full name, first name, or last name..."
+                />
+                <button id="search-btn" class="btn btn-primary">Search</button>
+            </div>
+            <div id="search-status" class="search-status"></div>
+        </header>
+
+        <!-- Search Results -->
+        <section class="card" id="results-section" style="display: none;">
+            <h2>Search Results</h2>
+            <div class="split-view">
+                <div class="left-panel">
+                    <h3>Users</h3>
+                    <div id="user-results" class="user-results"></div>
+                </div>
+                <div class="right-panel" id="user-details-panel">
+                    <div class="empty-state">
+                        <p>Select a user to view their roles and team assignments</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
