@@ -1,6 +1,6 @@
 {
     "name": "@darkwheel/pptb-security-manager",
-    "version": "0.2.0",
+    "version": "0.2.1-beta.0",
     "displayName": "Security Manager",
     "description": "A comprehensive tool to management security roles and team assignments in Power Platform environments.",
     "repository": {
