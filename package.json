@@ -30,9 +30,7 @@
         "iconUrl": "https://raw.githubusercontent.com/darkwheel/pptb-securityManager/refs/heads/main/icon.png",
         "readmeUrl": "https://raw.githubusercontent.com/darkwheel/pptb-securityManager/refs/heads/main/README.md"
     },
-    "features": {
-        "multi-connection": false
-    },
+    "features": {},
     "scripts": {
         "build": "tsc && npm run copy-html && npm run copy-css",
         "copy-html": "shx cp src/index.html dist/",
