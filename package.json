@@ -1,6 +1,6 @@
 {
     "name": "@darkwheel/pptb-security-manager",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "displayName": "Security Manager",
     "description": "A comprehensive tool to management security roles and team assignments in Power Platform environments.",
     "repository": {
@@ -30,9 +30,7 @@
         "iconUrl": "https://raw.githubusercontent.com/darkwheel/pptb-securityManager/refs/heads/main/icon.png",
         "readmeUrl": "https://raw.githubusercontent.com/darkwheel/pptb-securityManager/refs/heads/main/README.md"
     },
-    "features": {
-        "multi-connection": false
-    },
+    "features": {},
     "scripts": {
         "build": "tsc && npm run copy-html && npm run copy-css",
         "copy-html": "shx cp src/index.html dist/",
@@ -40,7 +38,7 @@
         "watch": "tsc --watch"
     },
     "devDependencies": {
-        "@pptb/types": "^1.0.11",
+        "@pptb/types": "^1.0.19",
         "typescript": "^5.0.0",
         "shx": "^0.4.0"
     }
