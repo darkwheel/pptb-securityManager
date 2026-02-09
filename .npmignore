@@ -1,0 +1,28 @@
+# Source code (only dist/ needed)
+src/
+
+# Development files
+tsconfig.json
+tsconfig.node.json
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# GitHub Actions
+.github/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing & Docs
+README.md
