@@ -1,11 +1,11 @@
 {
-    "name": "@darkwheel/pptb-security-manager",
+    "name": "@darkwheel/pptb-user-security-manager",
     "version": "0.0.2",
     "lockfileVersion": 3,
     "requires": true,
     "packages": {
         "": {
-            "name": "@darkwheel/pptb-security-manager",
+            "name": "@darkwheel/pptb-user-security-manager",
             "version": "0.0.2",
             "license": "MIT",
             "devDependencies": {
