@@ -1,4 +1,4 @@
-# Security Manager
+# User Security Manager
 
 A Power Platform Tool Box tool for managing user security roles and team memberships in Dataverse environments.
 
