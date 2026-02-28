@@ -28,14 +28,14 @@
     "configurations": {
         "repository": "https://github.com/darkwheel/pptb-userSecurityManager",
         "website": "https://github.com/darkwheel/pptb-userSecurityManager",
-        "iconUrl": "https://raw.githubusercontent.com/darkwheel/pptb-userSecurityManager/refs/heads/main/icon.png",
+        "iconUrl": "https://raw.githubusercontent.com/darkwheel/pptb-userSecurityManager/refs/heads/main/icon/icon.svg",
         "readmeUrl": "https://raw.githubusercontent.com/darkwheel/pptb-userSecurityManager/refs/heads/main/README.md"
     },
     "scripts": {
         "build": "tsc && npm run copy-html && npm run copy-css && npm run copy-icon",
         "copy-html": "shx cp src/index.html dist/",
         "copy-css": "shx cp src/styles.css dist/",
-        "copy-icon": "shx cp src/icon/icon.svg dist/",
+        "copy-icon": "shx cp icon/icon.svg dist/",
         "finalize-package": "npm shrinkwrap",
         "watch": "tsc --watch"
     },
