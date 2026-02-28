@@ -24,6 +24,7 @@
         "teams"
     ],
     "license": "MIT",
+    "icon": "icon/icon.svg",
     "configurations": {
         "repository": "https://github.com/darkwheel/pptb-userSecurityManager",
         "website": "https://github.com/darkwheel/pptb-userSecurityManager",
@@ -31,9 +32,11 @@
         "readmeUrl": "https://raw.githubusercontent.com/darkwheel/pptb-userSecurityManager/refs/heads/main/README.md"
     },
     "scripts": {
-        "build": "tsc && npm run copy-html && npm run copy-css",
+        "build": "tsc && npm run copy-html && npm run copy-css && npm run copy-icon",
         "copy-html": "shx cp src/index.html dist/",
         "copy-css": "shx cp src/styles.css dist/",
+        "copy-icon": "shx cp src/icon/icon.svg dist/",
+        "finalize-package": "npm shrinkwrap",
         "watch": "tsc --watch"
     },
     "devDependencies": {
