@@ -316,11 +316,11 @@ async function performSearch() {
                 resultsDiv.innerHTML = sortedUsers.map((user: any) => `
                     <div class="user-card ${user.isdisabled ? 'disabled' : 'enabled'}" data-userid="${user.systemuserid}">
                         <div class="user-header">
-                            <div class="user-name">${escapeHtml(user.fullname || 'N/A')}</div>
+                            <div class="user-name" title="${escapeHtml(user.fullname || 'N/A')}">${escapeHtml(user.fullname || 'N/A')}</div>
                             ${user['businessunit.name'] ? `<span class="business-unit-tag">${escapeHtml(user['businessunit.name'])}</span>` : ''}
                         </div>
                         <div class="user-detail">
-                            <div class="user-detail-value">${escapeHtml(user.internalemailaddress || 'N/A')}</div>
+                            <div class="user-detail-value" title="${escapeHtml(user.internalemailaddress || 'N/A')}">${escapeHtml(user.internalemailaddress || 'N/A')}</div>
                         </div>
                     </div>
                 `).join('');
@@ -410,8 +410,9 @@ async function selectUser(userId: string, userData: any) {
         // Display all information
         displayUserDetails(userData, userRoles, userTeams, combinedRoles, allAvailableRoles, allAvailableTeams);
 
-        // Setup checkbox listeners after rendering
+        // Setup checkbox listeners and list filters after rendering
         setupCheckboxListeners();
+        setupListFilters();
 
     } catch (error) {
         console.error('Error loading user details:', error);
@@ -639,6 +640,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                         <h4>Assigned Roles (${userRoles.length})</h4>
                         <button class="btn btn-danger btn-sm" id="remove-roles-btn" disabled ${!hasRoleWritePermission ? 'style="display:none;"' : ''}>Remove Selected</button>
                     </div>
+                    <input type="text" class="list-filter-input" placeholder="Filter assigned roles..." data-filter-section="assigned-roles" />
                     ${userRoles.length > 0 ? `
                         <table class="roles-table">
                             <thead>
@@ -672,6 +674,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                         <h4>Available Roles (${availableRoles.length})</h4>
                         <button class="btn btn-primary btn-sm" id="add-roles-btn" disabled ${!hasRoleWritePermission ? 'style="display:none;"' : ''}>Add Selected</button>
                     </div>
+                    <input type="text" class="list-filter-input" placeholder="Filter available roles..." data-filter-section="available-roles" />
                     ${availableRoles.length > 0 ? `
                         <table class="roles-table">
                             <thead>
@@ -708,6 +711,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             <h4>Assigned Teams (${userTeams.length})</h4>
                             <button class="btn btn-danger btn-sm" id="remove-teams-btn" disabled ${!hasTeamWritePermission ? 'style="display:none;"' : ''}>Remove Selected</button>
                         </div>
+                        <input type="text" class="list-filter-input" placeholder="Filter assigned teams..." data-filter-section="assigned-teams" />
                         ${userTeams.length > 0 ? `
                             <table class="roles-table">
                                 <thead>
@@ -740,6 +744,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             <h4>Available Teams (${availableTeams.length})</h4>
                             <button class="btn btn-primary btn-sm" id="add-teams-btn" disabled ${!hasTeamWritePermission ? 'style="display:none;"' : ''}>Add Selected</button>
                         </div>
+                        <input type="text" class="list-filter-input" placeholder="Filter available teams..." data-filter-section="available-teams" />
                         ${availableTeams.length > 0 ? `
                             <table class="roles-table">
                                 <thead>
@@ -893,6 +898,26 @@ function setupCollapsibleSections() {
                     icon.textContent = '▶';
                 }
             }
+        });
+    });
+}
+
+/**
+ * Setup filter inputs for the role and team lists.
+ * Rows are only hidden – never removed – so checkbox state is preserved across filter changes.
+ */
+function setupListFilters() {
+    const inputs = document.querySelectorAll<HTMLInputElement>('.list-filter-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', function(this: HTMLInputElement) {
+            const query = this.value.trim().toLowerCase();
+            const section = this.closest('.role-section');
+            if (!section) return;
+            const rows = section.querySelectorAll<HTMLTableRowElement>('tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent?.toLowerCase() ?? '';
+                row.style.display = query === '' || text.includes(query) ? '' : 'none';
+            });
         });
     });
 }

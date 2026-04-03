@@ -397,10 +397,26 @@ header h1 {
 
 .user-results .user-header {
     margin-bottom: 8px;
+    gap: 8px;
 }
 
 .user-results .user-name {
     font-size: 1em;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-results .business-unit-tag {
+    flex-shrink: 0;
+}
+
+.user-results .user-detail .user-detail-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .user-results .user-details {
@@ -506,6 +522,31 @@ header h1 {
 
 .role-header-with-button h4 {
     margin: 0;
+}
+
+/* Inline filter for role / team lists */
+.list-filter-input {
+    width: 100%;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: inherit;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.list-filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background-color: #fff;
+}
+
+.list-filter-input::placeholder {
+    color: var(--text-secondary);
 }
 
 .business-unit-tag {
