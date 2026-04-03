@@ -16,6 +16,7 @@ let currentConnection: ToolBoxAPI.DataverseConnection | null = null;
 let selectedUserId: string | null = null;
 let hasRoleWritePermission: boolean = false;
 let hasTeamWritePermission: boolean = false;
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Initialize the application
@@ -237,8 +238,19 @@ function setupEventHandlers() {
     // Allow Enter key to trigger search
     searchInput?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
             performSearch();
         }
+    });
+
+    // Debounced search on input (400ms delay)
+    searchInput?.addEventListener('input', () => {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        const value = searchInput.value.trim();
+        if (value.length === 0) return;
+        searchDebounceTimer = setTimeout(() => {
+            performSearch();
+        }, 400);
     });
 }
 
