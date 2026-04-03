@@ -22,17 +22,17 @@ let hasTeamWritePermission: boolean = false;
  */
 async function initialize() {
     console.log('Security Manager Tool initialized');
-    
+
     try {
         // Check if we have a connection
         currentConnection = await toolbox.connections.getActiveConnection();
-        
+
         if (currentConnection) {
             console.log('Connected to:', currentConnection.url);
-            
+
             // Check permissions
             await checkPermissions();
-            
+
             await toolbox.utils.showNotification({
                 title: 'Connected',
                 body: 'Connected to Dataverse environment',
@@ -70,23 +70,23 @@ async function initialize() {
 async function checkPermissions() {
     const permissionStatus = document.getElementById('permission-status');
     const searchContainer = document.querySelector('.search-container') as HTMLElement;
-    
+
     // Hide search bar initially
     if (searchContainer) searchContainer.style.display = 'none';
-    
+
     if (!permissionStatus) return;
 
     try {
         permissionStatus.innerHTML = '<div class="permission-info">Checking permissions...</div>';
-        
+
         // Get current user info
         const whoAmIResult = await dataverse.execute({
             operationName: 'WhoAmI',
             operationType: 'function'
         });
-        
+
         const userId = whoAmIResult.UserId as string;
-        
+
         // Get user details
         const userFetchXml = `
 <fetch top="1">
@@ -97,15 +97,15 @@ async function checkPermissions() {
         </filter>
     </entity>
 </fetch>`;
-        
+
         const userResult = await dataverse.fetchXmlQuery(userFetchXml);
         const userName = (userResult.value[0]?.fullname as string) || 'Unknown User';
-        
+
         // Check role permissions (both read and write)
         const roleReadPermission = await checkEntityReadPermission('role');
         const roleWritePermission = await checkEntityWritePermission('role');
         hasRoleWritePermission = roleWritePermission;
-        
+
         // Check team permissions (both read and write)
         const teamReadPermission = await checkEntityReadPermission('team');
         const teamWritePermission = await checkEntityWritePermission('team');
@@ -135,10 +135,10 @@ async function checkPermissions() {
                 </div>
             </div>
         `;
-        
+
         // Show search bar after permissions are loaded
         if (searchContainer) searchContainer.style.display = 'flex';
-        
+
     } catch (error) {
         console.error('Error checking permissions:', error);
         permissionStatus.innerHTML = `
@@ -163,7 +163,7 @@ async function checkEntityReadPermission(entityName: string): Promise<boolean> {
         <attribute name="${entityName}id" />
     </entity>
 </fetch>`;
-        
+
         await dataverse.fetchXmlQuery(fetchXml);
         return true;
     } catch (error) {
@@ -179,16 +179,16 @@ async function checkEntityWritePermission(entityName: string): Promise<boolean> 
     try {
         // Try to get entity metadata which requires read access
         await dataverse.getEntityMetadata(entityName, true, ['LogicalName']);
-        
+
         // For write permission, we check if user has necessary privileges
         // by querying the user's privileges via WhoAmI and privilege check
         const whoAmIResult = await dataverse.execute({
             operationName: 'WhoAmI',
             operationType: 'function'
         });
-        
+
         const userId = whoAmIResult.UserId as string;
-        
+
         // Query user's security roles to determine write access
         // If user has System Administrator role or specific privileges, they can write
         const rolesFetchXml = `
@@ -206,19 +206,19 @@ async function checkEntityWritePermission(entityName: string): Promise<boolean> 
         </filter>
     </entity>
 </fetch>`;
-        
+
         const rolesResult = await dataverse.fetchXmlQuery(rolesFetchXml);
-        
+
         // If user has admin role, they have write permission
         if (rolesResult.value.length > 0) {
             return true;
         }
-        
+
         // For non-admin users, we assume read-only unless they have specific privileges
         // A more sophisticated check would query privilege tables, but that's complex
         // For now, we'll return false for non-admins and let operations fail gracefully
         return false;
-        
+
     } catch (error) {
         console.error(`Error checking write permission for ${entityName}:`, error);
         return false;
@@ -312,7 +312,7 @@ async function performSearch() {
                     // Sort by status: enabled (false) before disabled (true)
                     return (a.isdisabled ? 1 : 0) - (b.isdisabled ? 1 : 0);
                 });
-                
+
                 resultsDiv.innerHTML = sortedUsers.map((user: any) => `
                     <div class="user-card ${user.isdisabled ? 'disabled' : 'enabled'}" data-userid="${user.systemuserid}">
                         <div class="user-header">
@@ -391,11 +391,11 @@ async function selectUser(userId: string, userData: any) {
         console.log('User data:', userData);
         console.log('User business unit ID:', userData.businessunitid);
         console.log('User business unit object:', userData['businessunit.businessunitid']);
-        
+
         // Extract business unit ID - it might be in different properties depending on how it was fetched
         const buId = userData.businessunitid || userData['businessunit.businessunitid'];
         console.log('Extracted BU ID:', buId);
-        
+
         const [userRoles, userTeams, teamRoles, allAvailableRoles, allAvailableTeams] = await Promise.all([
             fetchUserRoles(userId),
             fetchUserTeams(userId),
@@ -447,7 +447,7 @@ async function fetchUserRoles(userId: string): Promise<any[]> {
  */
 async function fetchAllAvailableRoles(businessUnitId: string): Promise<any[]> {
     console.log('Fetching roles for business unit:', businessUnitId);
-    
+
     const fetchXml = `
 <fetch>
     <entity name="role">
@@ -459,12 +459,12 @@ async function fetchAllAvailableRoles(businessUnitId: string): Promise<any[]> {
 
     const result = await dataverse.fetchXmlQuery(fetchXml);
     console.log('Total roles from system:', result.value.length);
-    
+
     // Filter roles by business unit on client side
     const filteredRoles = result.value.filter((role: any) => role['_businessunitid_value'] === businessUnitId);
     console.log('Roles filtered for BU:', filteredRoles.length);
     console.log('Filtered roles:', filteredRoles);
-    
+
     return filteredRoles;
 }
 
@@ -496,7 +496,7 @@ async function fetchUserTeams(userId: string): Promise<any[]> {
  */
 async function fetchAllAvailableTeams(businessUnitId: string): Promise<any[]> {
     console.log('Fetching teams for business unit:', businessUnitId);
-    
+
     const fetchXml = `
 <fetch>
     <entity name="team">
@@ -508,12 +508,12 @@ async function fetchAllAvailableTeams(businessUnitId: string): Promise<any[]> {
 
     const result = await dataverse.fetchXmlQuery(fetchXml);
     console.log('Total teams from system:', result.value.length);
-    
+
     // Filter teams by business unit on client side
     const filteredTeams = result.value.filter((team: any) => team['_businessunitid_value'] === businessUnitId);
     console.log('Teams filtered for BU:', filteredTeams.length);
     console.log('Filtered teams:', filteredTeams);
-    
+
     return filteredTeams;
 }
 
@@ -597,17 +597,17 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
         console.log('Assigned role ID:', roleId, 'from object:', r);
         return roleId;
     }));
-    
+
     // Get assigned team IDs
     const assignedTeamIds = new Set(userTeams.map(t => t['team.teamid'] || t['teamid']));
-    
+
     // Get available teams (not assigned)
     const availableTeams = allAvailableTeams.filter(t => !assignedTeamIds.has(t['teamid']));
-    
+
     console.log('All available roles count:', allAvailableRoles.length);
     console.log('All available roles sample:', allAvailableRoles.slice(0, 2));
     console.log('Assigned role IDs:', Array.from(assignedRoleIds));
-    
+
     // Get available roles (not assigned)
     const availableRoles = allAvailableRoles.filter(r => {
         const roleId = r['roleid'];
@@ -651,18 +651,18 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             </thead>
                             <tbody>
                                 ${[...userRoles].sort((a, b) => {
-                                    const nameA = (a['name'] || a['role.name'] || 'N/A').toLowerCase();
-                                    const nameB = (b['name'] || b['role.name'] || 'N/A').toLowerCase();
-                                    return nameA.localeCompare(nameB);
-                                }).map(role => {
-                                    const roleId = role['roleid'] || role['role.roleid'];
-                                    return `
+        const nameA = (a['name'] || a['role.name'] || 'N/A').toLowerCase();
+        const nameB = (b['name'] || b['role.name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(role => {
+        const roleId = role['roleid'] || role['role.roleid'];
+        return `
                                     <tr data-roleid="${roleId}">
                                         <td class="checkbox-cell"><input type="checkbox" class="assigned-role-checkbox"></td>
                                         <td>${escapeHtml(role['name'] || role['role.name'] || 'N/A')}</td>
                                     </tr>
                                 `;
-                                }).join('')}
+    }).join('')}
                             </tbody>
                         </table>
                     ` : '<div class="empty-message">No assigned roles</div>'}
@@ -685,10 +685,10 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             </thead>
                             <tbody>
                                 ${[...availableRoles].sort((a, b) => {
-                                    const nameA = (a['name'] || 'N/A').toLowerCase();
-                                    const nameB = (b['name'] || 'N/A').toLowerCase();
-                                    return nameA.localeCompare(nameB);
-                                }).map(role => `
+        const nameA = (a['name'] || 'N/A').toLowerCase();
+        const nameB = (b['name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(role => `
                                     <tr data-roleid="${role['roleid']}">
                                         <td class="checkbox-cell"><input type="checkbox" class="available-role-checkbox"></td>
                                         <td>${escapeHtml(role['name'] || 'N/A')}</td>
@@ -722,18 +722,18 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                                 </thead>
                                 <tbody>
                                     ${[...userTeams].sort((a, b) => {
-                                        const nameA = (a['team.name'] || 'N/A').toLowerCase();
-                                        const nameB = (b['team.name'] || 'N/A').toLowerCase();
-                                        return nameA.localeCompare(nameB);
-                                    }).map(team => {
-                                        const teamId = team['team.teamid'] || team['teamid'];
-                                        return `
+        const nameA = (a['team.name'] || 'N/A').toLowerCase();
+        const nameB = (b['team.name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(team => {
+        const teamId = team['team.teamid'] || team['teamid'];
+        return `
                                         <tr data-teamid="${teamId}">
                                             <td class="checkbox-cell"><input type="checkbox" class="assigned-team-checkbox"></td>
                                             <td>${escapeHtml(team['team.name'] || 'N/A')}</td>
                                         </tr>
                                     `;
-                                    }).join('')}
+    }).join('')}
                                 </tbody>
                             </table>
                         ` : '<div class="empty-message">No team memberships</div>'}
@@ -755,10 +755,10 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                                 </thead>
                                 <tbody>
                                     ${[...availableTeams].sort((a, b) => {
-                                        const nameA = (a['name'] || 'N/A').toLowerCase();
-                                        const nameB = (b['name'] || 'N/A').toLowerCase();
-                                        return nameA.localeCompare(nameB);
-                                    }).map(team => `
+        const nameA = (a['name'] || 'N/A').toLowerCase();
+        const nameB = (b['name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(team => `
                                         <tr data-teamid="${team['teamid']}">
                                             <td class="checkbox-cell"><input type="checkbox" class="available-team-checkbox"></td>
                                             <td>${escapeHtml(team['name'] || 'N/A')}</td>
@@ -786,18 +786,18 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                     </thead>
                     <tbody>
                         ${[...combinedRoles].sort((a, b) => {
-                            const nameA = (a.roleName || 'N/A').toLowerCase();
-                            const nameB = (b.roleName || 'N/A').toLowerCase();
-                            return nameA.localeCompare(nameB);
-                        }).map(role => `
+        const nameA = (a.roleName || 'N/A').toLowerCase();
+        const nameB = (b.roleName || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(role => `
                             <tr>
                                 <td>${escapeHtml(role.roleName)}</td>
                                 <td>
-                                    ${role.sources.map((source: any) => 
-                                        source.type === 'user' 
-                                            ? '<span class="role-source-user">Direct (User)</span>'
-                                            : `<span class="role-source-team">Team: ${escapeHtml(source.name)}</span>`
-                                    ).join(' ')}
+                                    ${role.sources.map((source: any) =>
+        source.type === 'user'
+            ? '<span class="role-source-user">Direct (User)</span>'
+            : `<span class="role-source-team">Team: ${escapeHtml(source.name)}</span>`
+    ).join(' ')}
                                 </td>
                             </tr>
                         `).join('')}
@@ -807,7 +807,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
             </div>
         </div>
     `;
-    
+
     // Setup collapsible sections
     setupCollapsibleSections();
 }
@@ -820,9 +820,9 @@ function setupCheckboxListeners() {
     const availableRoleCheckboxes = document.querySelectorAll('.available-role-checkbox') as NodeListOf<HTMLInputElement>;
     const assignedTeamCheckboxes = document.querySelectorAll('.assigned-team-checkbox') as NodeListOf<HTMLInputElement>;
     const availableTeamCheckboxes = document.querySelectorAll('.available-team-checkbox') as NodeListOf<HTMLInputElement>;
-    
+
     const allCheckboxes = document.querySelectorAll('.assigned-role-checkbox, .available-role-checkbox, .assigned-team-checkbox, .available-team-checkbox') as NodeListOf<HTMLInputElement>;
-    
+
     const removeRolesBtn = document.getElementById('remove-roles-btn') as HTMLButtonElement | null;
     const addRolesBtn = document.getElementById('add-roles-btn') as HTMLButtonElement | null;
     const removeTeamsBtn = document.getElementById('remove-teams-btn') as HTMLButtonElement | null;
@@ -841,7 +841,7 @@ function setupCheckboxListeners() {
     };
 
     allCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function(this: HTMLInputElement) {
+        checkbox.addEventListener('change', function (this: HTMLInputElement) {
             const row = (this.closest('tr') as HTMLTableRowElement);
             if (row) {
                 if (this.checked) {
@@ -880,16 +880,16 @@ function setupCheckboxListeners() {
  */
 function setupCollapsibleSections() {
     const headers = document.querySelectorAll('.collapsible-header');
-    
+
     headers.forEach(header => {
-        header.addEventListener('click', function(this: HTMLElement) {
+        header.addEventListener('click', function (this: HTMLElement) {
             const sectionName = this.getAttribute('data-section');
             const content = document.getElementById(`${sectionName}-content`);
             const icon = this.querySelector('.collapse-icon');
-            
+
             if (content && icon) {
                 const isCollapsed = content.classList.contains('collapsed');
-                
+
                 if (isCollapsed) {
                     content.classList.remove('collapsed');
                     icon.textContent = '▼';
@@ -909,7 +909,7 @@ function setupCollapsibleSections() {
 function setupListFilters() {
     const inputs = document.querySelectorAll<HTMLInputElement>('.list-filter-input');
     inputs.forEach(input => {
-        input.addEventListener('input', function(this: HTMLInputElement) {
+        input.addEventListener('input', function (this: HTMLInputElement) {
             const query = this.value.trim().toLowerCase();
             const section = this.closest('.role-section');
             if (!section) return;
