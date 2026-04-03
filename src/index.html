@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Security Manager</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -13,12 +15,8 @@
             <p class="subtitle">Check and manage user security permissions in Dataverse</p>
             <div id="permission-status" class="permission-status"></div>
             <div class="search-container">
-                <input 
-                    type="text" 
-                    id="user-search-input" 
-                    class="search-input" 
-                    placeholder="Search by domain, full name, first name, or last name..."
-                />
+                <input type="text" id="user-search-input" class="search-input"
+                    placeholder="Search by domain, full name, first name, or last name..." />
                 <button id="search-btn" class="btn btn-primary">Search</button>
             </div>
             <div id="search-status" class="search-status"></div>
@@ -27,6 +25,8 @@
         <!-- Search Results -->
         <section class="card" id="results-section" style="display: none;">
             <h2>Search Results</h2>
+            <div id="sticky-sentinel" style="height:1px; margin-top:-1px;"></div>
+            <div id="user-sticky-header"></div>
             <div class="split-view">
                 <div class="left-panel">
                     <h3>Users</h3>
@@ -43,4 +43,5 @@
 
     <script type="module" src="app.js"></script>
 </body>
+
 </html>

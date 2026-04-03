@@ -16,23 +16,24 @@ let currentConnection: ToolBoxAPI.DataverseConnection | null = null;
 let selectedUserId: string | null = null;
 let hasRoleWritePermission: boolean = false;
 let hasTeamWritePermission: boolean = false;
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Initialize the application
  */
 async function initialize() {
     console.log('Security Manager Tool initialized');
-    
+
     try {
         // Check if we have a connection
         currentConnection = await toolbox.connections.getActiveConnection();
-        
+
         if (currentConnection) {
             console.log('Connected to:', currentConnection.url);
-            
+
             // Check permissions
             await checkPermissions();
-            
+
             await toolbox.utils.showNotification({
                 title: 'Connected',
                 body: 'Connected to Dataverse environment',
@@ -70,23 +71,23 @@ async function initialize() {
 async function checkPermissions() {
     const permissionStatus = document.getElementById('permission-status');
     const searchContainer = document.querySelector('.search-container') as HTMLElement;
-    
+
     // Hide search bar initially
     if (searchContainer) searchContainer.style.display = 'none';
-    
+
     if (!permissionStatus) return;
 
     try {
         permissionStatus.innerHTML = '<div class="permission-info">Checking permissions...</div>';
-        
+
         // Get current user info
         const whoAmIResult = await dataverse.execute({
             operationName: 'WhoAmI',
             operationType: 'function'
         });
-        
+
         const userId = whoAmIResult.UserId as string;
-        
+
         // Get user details
         const userFetchXml = `
 <fetch top="1">
@@ -97,15 +98,15 @@ async function checkPermissions() {
         </filter>
     </entity>
 </fetch>`;
-        
+
         const userResult = await dataverse.fetchXmlQuery(userFetchXml);
         const userName = (userResult.value[0]?.fullname as string) || 'Unknown User';
-        
+
         // Check role permissions (both read and write)
         const roleReadPermission = await checkEntityReadPermission('role');
         const roleWritePermission = await checkEntityWritePermission('role');
         hasRoleWritePermission = roleWritePermission;
-        
+
         // Check team permissions (both read and write)
         const teamReadPermission = await checkEntityReadPermission('team');
         const teamWritePermission = await checkEntityWritePermission('team');
@@ -135,10 +136,10 @@ async function checkPermissions() {
                 </div>
             </div>
         `;
-        
+
         // Show search bar after permissions are loaded
         if (searchContainer) searchContainer.style.display = 'flex';
-        
+
     } catch (error) {
         console.error('Error checking permissions:', error);
         permissionStatus.innerHTML = `
@@ -163,7 +164,7 @@ async function checkEntityReadPermission(entityName: string): Promise<boolean> {
         <attribute name="${entityName}id" />
     </entity>
 </fetch>`;
-        
+
         await dataverse.fetchXmlQuery(fetchXml);
         return true;
     } catch (error) {
@@ -179,16 +180,16 @@ async function checkEntityWritePermission(entityName: string): Promise<boolean> 
     try {
         // Try to get entity metadata which requires read access
         await dataverse.getEntityMetadata(entityName, true, ['LogicalName']);
-        
+
         // For write permission, we check if user has necessary privileges
         // by querying the user's privileges via WhoAmI and privilege check
         const whoAmIResult = await dataverse.execute({
             operationName: 'WhoAmI',
             operationType: 'function'
         });
-        
+
         const userId = whoAmIResult.UserId as string;
-        
+
         // Query user's security roles to determine write access
         // If user has System Administrator role or specific privileges, they can write
         const rolesFetchXml = `
@@ -206,19 +207,19 @@ async function checkEntityWritePermission(entityName: string): Promise<boolean> 
         </filter>
     </entity>
 </fetch>`;
-        
+
         const rolesResult = await dataverse.fetchXmlQuery(rolesFetchXml);
-        
+
         // If user has admin role, they have write permission
         if (rolesResult.value.length > 0) {
             return true;
         }
-        
+
         // For non-admin users, we assume read-only unless they have specific privileges
         // A more sophisticated check would query privilege tables, but that's complex
         // For now, we'll return false for non-admins and let operations fail gracefully
         return false;
-        
+
     } catch (error) {
         console.error(`Error checking write permission for ${entityName}:`, error);
         return false;
@@ -312,15 +313,15 @@ async function performSearch() {
                     // Sort by status: enabled (false) before disabled (true)
                     return (a.isdisabled ? 1 : 0) - (b.isdisabled ? 1 : 0);
                 });
-                
+
                 resultsDiv.innerHTML = sortedUsers.map((user: any) => `
                     <div class="user-card ${user.isdisabled ? 'disabled' : 'enabled'}" data-userid="${user.systemuserid}">
                         <div class="user-header">
-                            <div class="user-name">${escapeHtml(user.fullname || 'N/A')}</div>
+                            <div class="user-name" title="${escapeHtml(user.fullname || 'N/A')}">${escapeHtml(user.fullname || 'N/A')}</div>
                             ${user['businessunit.name'] ? `<span class="business-unit-tag">${escapeHtml(user['businessunit.name'])}</span>` : ''}
                         </div>
                         <div class="user-detail">
-                            <div class="user-detail-value">${escapeHtml(user.internalemailaddress || 'N/A')}</div>
+                            <div class="user-detail-value" title="${escapeHtml(user.internalemailaddress || 'N/A')}">${escapeHtml(user.internalemailaddress || 'N/A')}</div>
                         </div>
                     </div>
                 `).join('');
@@ -383,6 +384,10 @@ async function selectUser(userId: string, userData: any) {
     const detailsPanel = document.getElementById('user-details-panel');
     if (!detailsPanel) return;
 
+    // Clear the sticky header while loading
+    const stickyHeaderEl = document.getElementById('user-sticky-header');
+    if (stickyHeaderEl) stickyHeaderEl.innerHTML = '';
+
     // Show loading state
     detailsPanel.innerHTML = '<div class="loading-indicator">Loading user details</div>';
 
@@ -391,11 +396,11 @@ async function selectUser(userId: string, userData: any) {
         console.log('User data:', userData);
         console.log('User business unit ID:', userData.businessunitid);
         console.log('User business unit object:', userData['businessunit.businessunitid']);
-        
+
         // Extract business unit ID - it might be in different properties depending on how it was fetched
         const buId = userData.businessunitid || userData['businessunit.businessunitid'];
         console.log('Extracted BU ID:', buId);
-        
+
         const [userRoles, userTeams, teamRoles, allAvailableRoles, allAvailableTeams] = await Promise.all([
             fetchUserRoles(userId),
             fetchUserTeams(userId),
@@ -410,12 +415,15 @@ async function selectUser(userId: string, userData: any) {
         // Display all information
         displayUserDetails(userData, userRoles, userTeams, combinedRoles, allAvailableRoles, allAvailableTeams);
 
-        // Setup checkbox listeners after rendering
+        // Setup checkbox listeners and list filters after rendering
         setupCheckboxListeners();
+        setupListFilters();
 
     } catch (error) {
         console.error('Error loading user details:', error);
         detailsPanel.innerHTML = `<div class="empty-state"><p>Error loading user details: ${(error as Error).message}</p></div>`;
+        const stickyHeaderEl = document.getElementById('user-sticky-header');
+        if (stickyHeaderEl) stickyHeaderEl.innerHTML = '';
     }
 }
 
@@ -446,7 +454,7 @@ async function fetchUserRoles(userId: string): Promise<any[]> {
  */
 async function fetchAllAvailableRoles(businessUnitId: string): Promise<any[]> {
     console.log('Fetching roles for business unit:', businessUnitId);
-    
+
     const fetchXml = `
 <fetch>
     <entity name="role">
@@ -458,12 +466,12 @@ async function fetchAllAvailableRoles(businessUnitId: string): Promise<any[]> {
 
     const result = await dataverse.fetchXmlQuery(fetchXml);
     console.log('Total roles from system:', result.value.length);
-    
+
     // Filter roles by business unit on client side
     const filteredRoles = result.value.filter((role: any) => role['_businessunitid_value'] === businessUnitId);
     console.log('Roles filtered for BU:', filteredRoles.length);
     console.log('Filtered roles:', filteredRoles);
-    
+
     return filteredRoles;
 }
 
@@ -495,7 +503,7 @@ async function fetchUserTeams(userId: string): Promise<any[]> {
  */
 async function fetchAllAvailableTeams(businessUnitId: string): Promise<any[]> {
     console.log('Fetching teams for business unit:', businessUnitId);
-    
+
     const fetchXml = `
 <fetch>
     <entity name="team">
@@ -507,12 +515,12 @@ async function fetchAllAvailableTeams(businessUnitId: string): Promise<any[]> {
 
     const result = await dataverse.fetchXmlQuery(fetchXml);
     console.log('Total teams from system:', result.value.length);
-    
+
     // Filter teams by business unit on client side
     const filteredTeams = result.value.filter((team: any) => team['_businessunitid_value'] === businessUnitId);
     console.log('Teams filtered for BU:', filteredTeams.length);
     console.log('Filtered teams:', filteredTeams);
-    
+
     return filteredTeams;
 }
 
@@ -596,17 +604,17 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
         console.log('Assigned role ID:', roleId, 'from object:', r);
         return roleId;
     }));
-    
+
     // Get assigned team IDs
     const assignedTeamIds = new Set(userTeams.map(t => t['team.teamid'] || t['teamid']));
-    
+
     // Get available teams (not assigned)
     const availableTeams = allAvailableTeams.filter(t => !assignedTeamIds.has(t['teamid']));
-    
+
     console.log('All available roles count:', allAvailableRoles.length);
     console.log('All available roles sample:', allAvailableRoles.slice(0, 2));
     console.log('Assigned role IDs:', Array.from(assignedRoleIds));
-    
+
     // Get available roles (not assigned)
     const availableRoles = allAvailableRoles.filter(r => {
         const roleId = r['roleid'];
@@ -615,20 +623,29 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
         return !isAssigned;
     });
 
-    detailsPanel.innerHTML = `
-        <div class="user-details-header">
-            <div>
-                <div class="user-details-title">${escapeHtml(userData.fullname || 'N/A')}</div>
-                <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
-                    <span style="color: var(--text-secondary);">${escapeHtml(userData.internalemailaddress || 'N/A')}</span>
-                    ${userData['businessunit.name'] ? `<span class="business-unit-tag ${userData.isdisabled ? 'disabled' : 'enabled'}">${escapeHtml(userData['businessunit.name'])}</span>` : ''}
+    // Render the sticky header into the full-width element above the split-view
+    const stickyHeaderEl = document.getElementById('user-sticky-header');
+    if (stickyHeaderEl) {
+        stickyHeaderEl.innerHTML = `
+            <div class="user-details-header">
+                <div class="sticky-panel-spacer"></div>
+                <div class="sticky-panel-content">
+                    <div>
+                        <div class="user-details-title">${escapeHtml(userData.fullname || 'N/A')}</div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                            <span style="color: var(--text-secondary);">${escapeHtml(userData.internalemailaddress || 'N/A')}</span>
+                            ${userData['businessunit.name'] ? `<span class="business-unit-tag ${userData.isdisabled ? 'disabled' : 'enabled'}">${escapeHtml(userData['businessunit.name'])}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="user-status ${userData.isdisabled ? 'disabled' : 'enabled'}">
+                        ${userData.isdisabled ? 'Disabled' : 'Enabled'}
+                    </div>
                 </div>
             </div>
-            <div class="user-status ${userData.isdisabled ? 'disabled' : 'enabled'}">
-                ${userData.isdisabled ? 'Disabled' : 'Enabled'}
-            </div>
-        </div>
+        `;
+    }
 
+    detailsPanel.innerHTML = `
         <div class="details-section">
             <h3 class="collapsible-header" data-section="user-roles">
                 <span class="collapse-icon">▼</span> 👤 User Roles
@@ -639,6 +656,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                         <h4>Assigned Roles (${userRoles.length})</h4>
                         <button class="btn btn-danger btn-sm" id="remove-roles-btn" disabled ${!hasRoleWritePermission ? 'style="display:none;"' : ''}>Remove Selected</button>
                     </div>
+                    <input type="text" class="list-filter-input" placeholder="Filter assigned roles..." data-filter-section="assigned-roles" />
                     ${userRoles.length > 0 ? `
                         <table class="roles-table">
                             <thead>
@@ -649,18 +667,18 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             </thead>
                             <tbody>
                                 ${[...userRoles].sort((a, b) => {
-                                    const nameA = (a['name'] || a['role.name'] || 'N/A').toLowerCase();
-                                    const nameB = (b['name'] || b['role.name'] || 'N/A').toLowerCase();
-                                    return nameA.localeCompare(nameB);
-                                }).map(role => {
-                                    const roleId = role['roleid'] || role['role.roleid'];
-                                    return `
+        const nameA = (a['name'] || a['role.name'] || 'N/A').toLowerCase();
+        const nameB = (b['name'] || b['role.name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(role => {
+        const roleId = role['roleid'] || role['role.roleid'];
+        return `
                                     <tr data-roleid="${roleId}">
                                         <td class="checkbox-cell"><input type="checkbox" class="assigned-role-checkbox"></td>
                                         <td>${escapeHtml(role['name'] || role['role.name'] || 'N/A')}</td>
                                     </tr>
                                 `;
-                                }).join('')}
+    }).join('')}
                             </tbody>
                         </table>
                     ` : '<div class="empty-message">No assigned roles</div>'}
@@ -672,6 +690,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                         <h4>Available Roles (${availableRoles.length})</h4>
                         <button class="btn btn-primary btn-sm" id="add-roles-btn" disabled ${!hasRoleWritePermission ? 'style="display:none;"' : ''}>Add Selected</button>
                     </div>
+                    <input type="text" class="list-filter-input" placeholder="Filter available roles..." data-filter-section="available-roles" />
                     ${availableRoles.length > 0 ? `
                         <table class="roles-table">
                             <thead>
@@ -682,10 +701,10 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             </thead>
                             <tbody>
                                 ${[...availableRoles].sort((a, b) => {
-                                    const nameA = (a['name'] || 'N/A').toLowerCase();
-                                    const nameB = (b['name'] || 'N/A').toLowerCase();
-                                    return nameA.localeCompare(nameB);
-                                }).map(role => `
+        const nameA = (a['name'] || 'N/A').toLowerCase();
+        const nameB = (b['name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(role => `
                                     <tr data-roleid="${role['roleid']}">
                                         <td class="checkbox-cell"><input type="checkbox" class="available-role-checkbox"></td>
                                         <td>${escapeHtml(role['name'] || 'N/A')}</td>
@@ -708,6 +727,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             <h4>Assigned Teams (${userTeams.length})</h4>
                             <button class="btn btn-danger btn-sm" id="remove-teams-btn" disabled ${!hasTeamWritePermission ? 'style="display:none;"' : ''}>Remove Selected</button>
                         </div>
+                        <input type="text" class="list-filter-input" placeholder="Filter assigned teams..." data-filter-section="assigned-teams" />
                         ${userTeams.length > 0 ? `
                             <table class="roles-table">
                                 <thead>
@@ -718,18 +738,18 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                                 </thead>
                                 <tbody>
                                     ${[...userTeams].sort((a, b) => {
-                                        const nameA = (a['team.name'] || 'N/A').toLowerCase();
-                                        const nameB = (b['team.name'] || 'N/A').toLowerCase();
-                                        return nameA.localeCompare(nameB);
-                                    }).map(team => {
-                                        const teamId = team['team.teamid'] || team['teamid'];
-                                        return `
+        const nameA = (a['team.name'] || 'N/A').toLowerCase();
+        const nameB = (b['team.name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(team => {
+        const teamId = team['team.teamid'] || team['teamid'];
+        return `
                                         <tr data-teamid="${teamId}">
                                             <td class="checkbox-cell"><input type="checkbox" class="assigned-team-checkbox"></td>
                                             <td>${escapeHtml(team['team.name'] || 'N/A')}</td>
                                         </tr>
                                     `;
-                                    }).join('')}
+    }).join('')}
                                 </tbody>
                             </table>
                         ` : '<div class="empty-message">No team memberships</div>'}
@@ -740,6 +760,7 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                             <h4>Available Teams (${availableTeams.length})</h4>
                             <button class="btn btn-primary btn-sm" id="add-teams-btn" disabled ${!hasTeamWritePermission ? 'style="display:none;"' : ''}>Add Selected</button>
                         </div>
+                        <input type="text" class="list-filter-input" placeholder="Filter available teams..." data-filter-section="available-teams" />
                         ${availableTeams.length > 0 ? `
                             <table class="roles-table">
                                 <thead>
@@ -750,10 +771,10 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                                 </thead>
                                 <tbody>
                                     ${[...availableTeams].sort((a, b) => {
-                                        const nameA = (a['name'] || 'N/A').toLowerCase();
-                                        const nameB = (b['name'] || 'N/A').toLowerCase();
-                                        return nameA.localeCompare(nameB);
-                                    }).map(team => `
+        const nameA = (a['name'] || 'N/A').toLowerCase();
+        const nameB = (b['name'] || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(team => `
                                         <tr data-teamid="${team['teamid']}">
                                             <td class="checkbox-cell"><input type="checkbox" class="available-team-checkbox"></td>
                                             <td>${escapeHtml(team['name'] || 'N/A')}</td>
@@ -781,18 +802,18 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
                     </thead>
                     <tbody>
                         ${[...combinedRoles].sort((a, b) => {
-                            const nameA = (a.roleName || 'N/A').toLowerCase();
-                            const nameB = (b.roleName || 'N/A').toLowerCase();
-                            return nameA.localeCompare(nameB);
-                        }).map(role => `
+        const nameA = (a.roleName || 'N/A').toLowerCase();
+        const nameB = (b.roleName || 'N/A').toLowerCase();
+        return nameA.localeCompare(nameB);
+    }).map(role => `
                             <tr>
                                 <td>${escapeHtml(role.roleName)}</td>
                                 <td>
-                                    ${role.sources.map((source: any) => 
-                                        source.type === 'user' 
-                                            ? '<span class="role-source-user">Direct (User)</span>'
-                                            : `<span class="role-source-team">Team: ${escapeHtml(source.name)}</span>`
-                                    ).join(' ')}
+                                    ${role.sources.map((source: any) =>
+        source.type === 'user'
+            ? '<span class="role-source-user">Direct (User)</span>'
+            : `<span class="role-source-team">Team: ${escapeHtml(source.name)}</span>`
+    ).join(' ')}
                                 </td>
                             </tr>
                         `).join('')}
@@ -802,9 +823,11 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
             </div>
         </div>
     `;
-    
+
     // Setup collapsible sections
     setupCollapsibleSections();
+
+    // Toggle shadow on sticky header when it becomes stuck\n    const sentinel = document.getElementById('sticky-sentinel');\n    if (sentinel && stickyHeaderEl) {\n        const observer = new IntersectionObserver(\n            ([entry]) => {\n                stickyHeaderEl.classList.toggle('is-stuck', !entry.isIntersecting);\n            },\n            { threshold: [1] }\n        );\n        observer.observe(sentinel);\n    }
 }
 
 /**
@@ -815,9 +838,9 @@ function setupCheckboxListeners() {
     const availableRoleCheckboxes = document.querySelectorAll('.available-role-checkbox') as NodeListOf<HTMLInputElement>;
     const assignedTeamCheckboxes = document.querySelectorAll('.assigned-team-checkbox') as NodeListOf<HTMLInputElement>;
     const availableTeamCheckboxes = document.querySelectorAll('.available-team-checkbox') as NodeListOf<HTMLInputElement>;
-    
+
     const allCheckboxes = document.querySelectorAll('.assigned-role-checkbox, .available-role-checkbox, .assigned-team-checkbox, .available-team-checkbox') as NodeListOf<HTMLInputElement>;
-    
+
     const removeRolesBtn = document.getElementById('remove-roles-btn') as HTMLButtonElement | null;
     const addRolesBtn = document.getElementById('add-roles-btn') as HTMLButtonElement | null;
     const removeTeamsBtn = document.getElementById('remove-teams-btn') as HTMLButtonElement | null;
@@ -836,7 +859,7 @@ function setupCheckboxListeners() {
     };
 
     allCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function(this: HTMLInputElement) {
+        checkbox.addEventListener('change', function (this: HTMLInputElement) {
             const row = (this.closest('tr') as HTMLTableRowElement);
             if (row) {
                 if (this.checked) {
@@ -875,16 +898,16 @@ function setupCheckboxListeners() {
  */
 function setupCollapsibleSections() {
     const headers = document.querySelectorAll('.collapsible-header');
-    
+
     headers.forEach(header => {
-        header.addEventListener('click', function(this: HTMLElement) {
+        header.addEventListener('click', function (this: HTMLElement) {
             const sectionName = this.getAttribute('data-section');
             const content = document.getElementById(`${sectionName}-content`);
             const icon = this.querySelector('.collapse-icon');
-            
+
             if (content && icon) {
                 const isCollapsed = content.classList.contains('collapsed');
-                
+
                 if (isCollapsed) {
                     content.classList.remove('collapsed');
                     icon.textContent = '▼';
@@ -893,6 +916,26 @@ function setupCollapsibleSections() {
                     icon.textContent = '▶';
                 }
             }
+        });
+    });
+}
+
+/**
+ * Setup filter inputs for the role and team lists.
+ * Rows are only hidden – never removed – so checkbox state is preserved across filter changes.
+ */
+function setupListFilters() {
+    const inputs = document.querySelectorAll<HTMLInputElement>('.list-filter-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', function (this: HTMLInputElement) {
+            const query = this.value.trim().toLowerCase();
+            const section = this.closest('.role-section');
+            if (!section) return;
+            const rows = section.querySelectorAll<HTMLTableRowElement>('tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent?.toLowerCase() ?? '';
+                row.style.display = query === '' || text.includes(query) ? '' : 'none';
+            });
         });
     });
 }

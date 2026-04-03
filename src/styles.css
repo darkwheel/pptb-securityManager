@@ -84,6 +84,8 @@ header h1 {
     display: flex;
     gap: 8px;
     margin-top: 12px;
+    max-width: 600px;
+    width: 100%;
 }
 
 .search-input {
@@ -146,27 +148,27 @@ header h1 {
     opacity: 0.5;
     cursor: not-allowed;
 
-.btn-sm {
-    padding: 8px 16px;
-    font-size: 0.9em;
-}
+    .btn-sm {
+        padding: 8px 16px;
+        font-size: 0.9em;
+    }
 
-.role-header-with-button {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    margin-bottom: 12px;
-    gap: 12px;
-}
+    .role-header-with-button {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        margin-bottom: 12px;
+        gap: 12px;
+    }
 
-.role-header-with-button h4 {
-    margin: 0;
-}
+    .role-header-with-button h4 {
+        margin: 0;
+    }
 
-.role-header-with-button .btn {
-    margin: 0;
-    white-space: nowrap;
-}
+    .role-header-with-button .btn {
+        margin: 0;
+        white-space: nowrap;
+    }
 }
 
 .search-status {
@@ -369,7 +371,6 @@ header h1 {
 
 .right-panel {
     padding-left: 20px;
-    overflow-y: auto;
 }
 
 .empty-state {
@@ -397,10 +398,26 @@ header h1 {
 
 .user-results .user-header {
     margin-bottom: 8px;
+    gap: 8px;
 }
 
 .user-results .user-name {
     font-size: 1em;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-results .business-unit-tag {
+    flex-shrink: 0;
+}
+
+.user-results .user-detail .user-detail-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .user-results .user-details {
@@ -408,13 +425,44 @@ header h1 {
 }
 
 /* User Details Panel */
+#user-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--card-background);
+    margin: 0 -20px;
+    padding: 0 20px;
+    transition: box-shadow 0.2s;
+}
+
+#user-sticky-header.is-stuck {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
 .user-details-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 0 15px;
+    margin-bottom: 0;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.sticky-panel-spacer {
+    /* matches split-view left column (320px) + gap (12px) */
+    width: 332px;
+    flex-shrink: 0;
+}
+
+.sticky-panel-content {
+    flex: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--border-color);
+}
+
+.user-details-header.is-stuck {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .user-details-title {
@@ -508,6 +556,31 @@ header h1 {
     margin: 0;
 }
 
+/* Inline filter for role / team lists */
+.list-filter-input {
+    width: 100%;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: inherit;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.list-filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background-color: #fff;
+}
+
+.list-filter-input::placeholder {
+    color: var(--text-secondary);
+}
+
 .business-unit-tag {
     display: inline-block;
     padding: 4px 10px;
@@ -548,9 +621,20 @@ header h1 {
 }
 
 @keyframes dots {
-    0%, 20% { content: '.'; }
-    40% { content: '..'; }
-    60%, 100% { content: '...'; }
+
+    0%,
+    20% {
+        content: '.';
+    }
+
+    40% {
+        content: '..';
+    }
+
+    60%,
+    100% {
+        content: '...';
+    }
 }
 
 /* Role List */
@@ -624,7 +708,7 @@ header h1 {
     color: var(--text-color);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 5;
 }
 
 .roles-table tr:hover {
@@ -640,22 +724,23 @@ header h1 {
 }
 
 /* Scrollable table container - limit to 15 rows */
-.role-section > .roles-table,
-.details-section > .roles-table {
+.role-section>.roles-table,
+.details-section>.roles-table {
     display: block;
-    max-height: calc(15 * 42px + 50px); /* ~15 rows at ~42px each + header */
+    max-height: calc(15 * 42px + 50px);
+    /* ~15 rows at ~42px each + header */
     overflow-y: auto;
 }
 
-.role-section > .roles-table thead,
-.details-section > .roles-table thead {
+.role-section>.roles-table thead,
+.details-section>.roles-table thead {
     display: table;
     width: 100%;
     table-layout: fixed;
 }
 
-.role-section > .roles-table tbody,
-.details-section > .roles-table tbody {
+.role-section>.roles-table tbody,
+.details-section>.roles-table tbody {
     display: table;
     width: 100%;
     table-layout: fixed;
