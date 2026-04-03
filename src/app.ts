@@ -238,19 +238,8 @@ function setupEventHandlers() {
     // Allow Enter key to trigger search
     searchInput?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
             performSearch();
         }
-    });
-
-    // Debounced search on input (400ms delay)
-    searchInput?.addEventListener('input', () => {
-        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-        const value = searchInput.value.trim();
-        if (value.length === 0) return;
-        searchDebounceTimer = setTimeout(() => {
-            performSearch();
-        }, 400);
     });
 }
 
@@ -395,6 +384,10 @@ async function selectUser(userId: string, userData: any) {
     const detailsPanel = document.getElementById('user-details-panel');
     if (!detailsPanel) return;
 
+    // Clear the sticky header while loading
+    const stickyHeaderEl = document.getElementById('user-sticky-header');
+    if (stickyHeaderEl) stickyHeaderEl.innerHTML = '';
+
     // Show loading state
     detailsPanel.innerHTML = '<div class="loading-indicator">Loading user details</div>';
 
@@ -429,6 +422,8 @@ async function selectUser(userId: string, userData: any) {
     } catch (error) {
         console.error('Error loading user details:', error);
         detailsPanel.innerHTML = `<div class="empty-state"><p>Error loading user details: ${(error as Error).message}</p></div>`;
+        const stickyHeaderEl = document.getElementById('user-sticky-header');
+        if (stickyHeaderEl) stickyHeaderEl.innerHTML = '';
     }
 }
 
@@ -628,20 +623,29 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
         return !isAssigned;
     });
 
-    detailsPanel.innerHTML = `
-        <div class="user-details-header">
-            <div>
-                <div class="user-details-title">${escapeHtml(userData.fullname || 'N/A')}</div>
-                <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
-                    <span style="color: var(--text-secondary);">${escapeHtml(userData.internalemailaddress || 'N/A')}</span>
-                    ${userData['businessunit.name'] ? `<span class="business-unit-tag ${userData.isdisabled ? 'disabled' : 'enabled'}">${escapeHtml(userData['businessunit.name'])}</span>` : ''}
+    // Render the sticky header into the full-width element above the split-view
+    const stickyHeaderEl = document.getElementById('user-sticky-header');
+    if (stickyHeaderEl) {
+        stickyHeaderEl.innerHTML = `
+            <div class="user-details-header">
+                <div class="sticky-panel-spacer"></div>
+                <div class="sticky-panel-content">
+                    <div>
+                        <div class="user-details-title">${escapeHtml(userData.fullname || 'N/A')}</div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                            <span style="color: var(--text-secondary);">${escapeHtml(userData.internalemailaddress || 'N/A')}</span>
+                            ${userData['businessunit.name'] ? `<span class="business-unit-tag ${userData.isdisabled ? 'disabled' : 'enabled'}">${escapeHtml(userData['businessunit.name'])}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="user-status ${userData.isdisabled ? 'disabled' : 'enabled'}">
+                        ${userData.isdisabled ? 'Disabled' : 'Enabled'}
+                    </div>
                 </div>
             </div>
-            <div class="user-status ${userData.isdisabled ? 'disabled' : 'enabled'}">
-                ${userData.isdisabled ? 'Disabled' : 'Enabled'}
-            </div>
-        </div>
+        `;
+    }
 
+    detailsPanel.innerHTML = `
         <div class="details-section">
             <h3 class="collapsible-header" data-section="user-roles">
                 <span class="collapse-icon">▼</span> 👤 User Roles
@@ -822,6 +826,8 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
 
     // Setup collapsible sections
     setupCollapsibleSections();
+
+    // Toggle shadow on sticky header when it becomes stuck\n    const sentinel = document.getElementById('sticky-sentinel');\n    if (sentinel && stickyHeaderEl) {\n        const observer = new IntersectionObserver(\n            ([entry]) => {\n                stickyHeaderEl.classList.toggle('is-stuck', !entry.isIntersecting);\n            },\n            { threshold: [1] }\n        );\n        observer.observe(sentinel);\n    }
 }
 
 /**

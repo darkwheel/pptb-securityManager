@@ -85,8 +85,6 @@ header h1 {
     gap: 8px;
     margin-top: 12px;
     max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
     width: 100%;
 }
 
@@ -373,7 +371,6 @@ header h1 {
 
 .right-panel {
     padding-left: 20px;
-    overflow-y: auto;
 }
 
 .empty-state {
@@ -428,13 +425,44 @@ header h1 {
 }
 
 /* User Details Panel */
+#user-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--card-background);
+    margin: 0 -20px;
+    padding: 0 20px;
+    transition: box-shadow 0.2s;
+}
+
+#user-sticky-header.is-stuck {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
 .user-details-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 0 15px;
+    margin-bottom: 0;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.sticky-panel-spacer {
+    /* matches split-view left column (320px) + gap (12px) */
+    width: 332px;
+    flex-shrink: 0;
+}
+
+.sticky-panel-content {
+    flex: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--border-color);
+}
+
+.user-details-header.is-stuck {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .user-details-title {
@@ -680,7 +708,7 @@ header h1 {
     color: var(--text-color);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 5;
 }
 
 .roles-table tr:hover {
