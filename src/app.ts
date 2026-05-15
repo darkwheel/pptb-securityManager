@@ -455,24 +455,105 @@ async function fetchUserRoles(userId: string): Promise<any[]> {
 async function fetchAllAvailableRoles(businessUnitId: string): Promise<any[]> {
     console.log('Fetching roles for business unit:', businessUnitId);
 
+    // First, get the parent business unit chain
+    const parentBuIds = await getParentBusinessUnitChain(businessUnitId);
+    console.log('Business unit hierarchy:', [businessUnitId, ...parentBuIds]);
+
     const fetchXml = `
 <fetch>
     <entity name="role">
         <attribute name="name" />
         <attribute name="roleid" />
         <attribute name="businessunitid" />
+        <link-entity name="businessunit" from="businessunitid" to="businessunitid" alias="bu">
+            <attribute name="name" />
+        </link-entity>
     </entity>
 </fetch>`;
 
     const result = await dataverse.fetchXmlQuery(fetchXml);
     console.log('Total roles from system:', result.value.length);
 
-    // Filter roles by business unit on client side
-    const filteredRoles = result.value.filter((role: any) => role['_businessunitid_value'] === businessUnitId);
-    console.log('Roles filtered for BU:', filteredRoles.length);
-    console.log('Filtered roles:', filteredRoles);
+    // Filter roles to include user's BU and all parent BUs
+    const allowedBuIds = new Set([businessUnitId, ...parentBuIds]);
+    const filteredRoles = result.value.filter((role: any) =>
+        allowedBuIds.has(role['_businessunitid_value'])
+    );
+    console.log('Roles from user BU and parent BUs:', filteredRoles.length);
 
-    return filteredRoles;
+    // Deduplicate by role name, prioritizing user's BU over parent BUs
+    const rolesByName = new Map<string, any>();
+
+    // Sort by BU priority: user's BU first, then parents in order
+    const sortedRoles = filteredRoles.sort((a, b) => {
+        const aBuId = a['_businessunitid_value'] as string;
+        const bBuId = b['_businessunitid_value'] as string;
+
+        if (aBuId === businessUnitId) return -1;
+        if (bBuId === businessUnitId) return 1;
+
+        const aIndex = parentBuIds.indexOf(aBuId);
+        const bIndex = parentBuIds.indexOf(bBuId);
+        return aIndex - bIndex;
+    });
+
+    // Keep only first occurrence of each role name (which will be from the closest BU)
+    // Also mark if role is from a parent BU
+    sortedRoles.forEach(role => {
+        const roleName = role['name'] as string;
+        if (!rolesByName.has(roleName)) {
+            // Add flag indicating if this role is from a parent BU
+            role.isFromParentBU = role['_businessunitid_value'] !== businessUnitId;
+            rolesByName.set(roleName, role);
+        }
+    });
+
+    const deduplicatedRoles = Array.from(rolesByName.values());
+    console.log('Deduplicated roles:', deduplicatedRoles.length);
+
+    return deduplicatedRoles;
+}
+
+/**
+ * Get the parent business unit chain for a given business unit
+ */
+async function getParentBusinessUnitChain(businessUnitId: string): Promise<string[]> {
+    const parentIds: string[] = [];
+    let currentBuId: string | null = businessUnitId;
+
+    // Walk up the parent chain (max 10 levels to prevent infinite loops)
+    for (let i = 0; i < 10 && currentBuId; i++) {
+        const fetchXml = `
+<fetch top="1">
+    <entity name="businessunit">
+        <attribute name="parentbusinessunitid" />
+        <filter>
+            <condition attribute="businessunitid" operator="eq" value="${currentBuId}" />
+        </filter>
+    </entity>
+</fetch>`;
+
+        try {
+            const result = await dataverse.fetchXmlQuery(fetchXml);
+            if (result.value.length > 0) {
+                const parentBuId = result.value[0]['_parentbusinessunitid_value'] as string | undefined;
+                if (parentBuId && parentBuId !== currentBuId) {
+                    parentIds.push(parentBuId);
+                    currentBuId = parentBuId;
+                } else {
+                    // Reached root BU (no parent)
+                    break;
+                }
+            } else {
+                break;
+            }
+        } catch (error) {
+            console.error('Error fetching parent BU:', error);
+            break;
+        }
+    }
+
+    return parentIds;
 }
 
 /**
@@ -704,12 +785,19 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
         const nameA = (a['name'] || 'N/A').toLowerCase();
         const nameB = (b['name'] || 'N/A').toLowerCase();
         return nameA.localeCompare(nameB);
-    }).map(role => `
+    }).map(role => {
+        const buName = role['bu.name'];
+        const isFromParentBU = role.isFromParentBU;
+        return `
                                     <tr data-roleid="${role['roleid']}">
                                         <td class="checkbox-cell"><input type="checkbox" class="available-role-checkbox"></td>
-                                        <td>${escapeHtml(role['name'] || 'N/A')}</td>
+                                        <td>
+                                            ${escapeHtml(role['name'] || 'N/A')}
+                                            ${isFromParentBU && buName ? `<span class="business-unit-tag parent-bu" style="margin-left: 8px;" title="From parent business unit">${escapeHtml(buName)}</span>` : ''}
+                                        </td>
                                     </tr>
-                                `).join('')}
+                                `;
+    }).join('')}
                             </tbody>
                         </table>
                     ` : '<div class="empty-message">All available roles assigned</div>'}
