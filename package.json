@@ -1,6 +1,6 @@
 {
     "name": "@darkwheel/pptb-user-security-manager",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "displayName": "User Security Manager",
     "description": "A comprehensive tool to management security roles and team assignments in Power Platform environments.",
     "repository": {
