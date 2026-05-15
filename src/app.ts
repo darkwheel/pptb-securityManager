@@ -394,11 +394,11 @@ async function selectUser(userId: string, userData: any) {
     try {
         // Fetch user roles, teams, team-derived roles, and all available roles in parallel
         console.log('User data:', userData);
-        console.log('User business unit ID:', userData.businessunitid);
+        console.log('User business unit ID:', userData._businessunitid_value);
         console.log('User business unit object:', userData['businessunit.businessunitid']);
 
-        // Extract business unit ID - it might be in different properties depending on how it was fetched
-        const buId = userData.businessunitid || userData['businessunit.businessunitid'];
+        // Extract business unit ID - for lookup fields, use _attributename_value
+        const buId = userData._businessunitid_value || userData['businessunit.businessunitid'];
         console.log('Extracted BU ID:', buId);
 
         const [userRoles, userTeams, teamRoles, allAvailableRoles, allAvailableTeams] = await Promise.all([
@@ -450,68 +450,71 @@ async function fetchUserRoles(userId: string): Promise<any[]> {
 }
 
 /**
+ * Generic function to fetch all records using FetchXML pagination
+ */
+async function fetchAllWithPagination(baseFetchXml: string, entityName: string): Promise<any[]> {
+    console.log(`Fetching all ${entityName} records with pagination...`);
+
+    const allRecords: any[] = [];
+    let pageNumber = 1;
+    let pagingCookie: string | null = null;
+
+    while (true) {
+        // Build FetchXML with paging
+        const parser = new DOMParser();
+        const serializer = new XMLSerializer();
+        const fetchDoc = parser.parseFromString(baseFetchXml, 'text/xml');
+        const fetchNode = fetchDoc.getElementsByTagName('fetch')[0];
+
+        fetchNode.setAttribute('page', pageNumber.toString());
+
+        if (pagingCookie) {
+            // Parse the paging cookie XML structure
+            const cookieDoc = parser.parseFromString(pagingCookie, 'text/xml');
+            const cookieAttr = cookieDoc.getElementsByTagName('cookie')[0]?.getAttribute('pagingcookie');
+
+            if (cookieAttr) {
+                // Double decode the paging cookie
+                const decodedCookie = decodeURIComponent(decodeURIComponent(cookieAttr));
+                const innerCookieDoc = parser.parseFromString(decodedCookie, 'text/xml');
+
+                // Set the paging cookie attribute
+                fetchNode.setAttribute('paging-cookie', serializer.serializeToString(innerCookieDoc));
+            }
+        }
+
+        const fetchXml = serializer.serializeToString(fetchDoc);
+
+        console.log(`Fetching ${entityName} page ${pageNumber}...`);
+        const result = await dataverse.fetchXmlQuery(fetchXml);
+
+        if (result.value && result.value.length > 0) {
+            allRecords.push(...result.value);
+            console.log(`Page ${pageNumber}: ${result.value.length} ${entityName} (total: ${allRecords.length})`);
+        }
+
+        // Check for paging cookie in result
+        const resultAny = result as any;
+        pagingCookie = resultAny.fetchXmlPagingCookie || resultAny['@Microsoft.Dynamics.CRM.fetchxmlpagingcookie'];
+
+        if (pagingCookie) {
+            pageNumber++;
+        } else {
+            // No more records
+            break;
+        }
+    }
+
+    console.log(`Total ${entityName} fetched:`, allRecords.length);
+    return allRecords;
+}
+
+/**
  * Fetch all available roles in the system for a specific business unit
  */
 async function fetchAllAvailableRoles(businessUnitId: string): Promise<any[]> {
-    console.log('Fetching roles for business unit:', businessUnitId);
-
-    // First, get the parent business unit chain
-    const parentBuIds = await getParentBusinessUnitChain(businessUnitId);
-    console.log('Business unit hierarchy:', [businessUnitId, ...parentBuIds]);
-
-    const fetchXml = `
-<fetch>
-    <entity name="role">
-        <attribute name="name" />
-        <attribute name="roleid" />
-        <attribute name="businessunitid" />
-        <link-entity name="businessunit" from="businessunitid" to="businessunitid" alias="bu">
-            <attribute name="name" />
-        </link-entity>
-    </entity>
-</fetch>`;
-
-    const result = await dataverse.fetchXmlQuery(fetchXml);
-    console.log('Total roles from system:', result.value.length);
-
-    // Filter roles to include user's BU and all parent BUs
-    const allowedBuIds = new Set([businessUnitId, ...parentBuIds]);
-    const filteredRoles = result.value.filter((role: any) =>
-        allowedBuIds.has(role['_businessunitid_value'])
-    );
-    console.log('Roles from user BU and parent BUs:', filteredRoles.length);
-
-    // Deduplicate by role name, prioritizing user's BU over parent BUs
-    const rolesByName = new Map<string, any>();
-
-    // Sort by BU priority: user's BU first, then parents in order
-    const sortedRoles = filteredRoles.sort((a, b) => {
-        const aBuId = a['_businessunitid_value'] as string;
-        const bBuId = b['_businessunitid_value'] as string;
-
-        if (aBuId === businessUnitId) return -1;
-        if (bBuId === businessUnitId) return 1;
-
-        const aIndex = parentBuIds.indexOf(aBuId);
-        const bIndex = parentBuIds.indexOf(bBuId);
-        return aIndex - bIndex;
-    });
-
-    // Keep only first occurrence of each role name (which will be from the closest BU)
-    // Also mark if role is from a parent BU
-    sortedRoles.forEach(role => {
-        const roleName = role['name'] as string;
-        if (!rolesByName.has(roleName)) {
-            // Add flag indicating if this role is from a parent BU
-            role.isFromParentBU = role['_businessunitid_value'] !== businessUnitId;
-            rolesByName.set(roleName, role);
-        }
-    });
-
-    const deduplicatedRoles = Array.from(rolesByName.values());
-    console.log('Deduplicated roles:', deduplicatedRoles.length);
-
-    return deduplicatedRoles;
+    const baseFetchXml = `<fetch count="5000"><entity name="role"><attribute name="name"/><attribute name="roleid"/><attribute name="businessunitid"/><order attribute="roleid"/><filter><condition attribute="businessunitid" operator="eq" value="${businessUnitId}"/></filter></entity></fetch>`;
+    return fetchAllWithPagination(baseFetchXml, 'roles');
 }
 
 /**
@@ -583,26 +586,8 @@ async function fetchUserTeams(userId: string): Promise<any[]> {
  * Fetch all available teams for a specific business unit
  */
 async function fetchAllAvailableTeams(businessUnitId: string): Promise<any[]> {
-    console.log('Fetching teams for business unit:', businessUnitId);
-
-    const fetchXml = `
-<fetch>
-    <entity name="team">
-        <attribute name="name" />
-        <attribute name="teamid" />
-        <attribute name="businessunitid" />
-    </entity>
-</fetch>`;
-
-    const result = await dataverse.fetchXmlQuery(fetchXml);
-    console.log('Total teams from system:', result.value.length);
-
-    // Filter teams by business unit on client side
-    const filteredTeams = result.value.filter((team: any) => team['_businessunitid_value'] === businessUnitId);
-    console.log('Teams filtered for BU:', filteredTeams.length);
-    console.log('Filtered teams:', filteredTeams);
-
-    return filteredTeams;
+    const baseFetchXml = `<fetch count="5000"><entity name="team"><attribute name="name"/><attribute name="teamid"/><attribute name="businessunitid"/><order attribute="teamid"/></entity></fetch>`;
+    return fetchAllWithPagination(baseFetchXml, 'teams');
 }
 
 /**
@@ -785,19 +770,12 @@ function displayUserDetails(userData: any, userRoles: any[], userTeams: any[], c
         const nameA = (a['name'] || 'N/A').toLowerCase();
         const nameB = (b['name'] || 'N/A').toLowerCase();
         return nameA.localeCompare(nameB);
-    }).map(role => {
-        const buName = role['bu.name'];
-        const isFromParentBU = role.isFromParentBU;
-        return `
+    }).map(role => `
                                     <tr data-roleid="${role['roleid']}">
                                         <td class="checkbox-cell"><input type="checkbox" class="available-role-checkbox"></td>
-                                        <td>
-                                            ${escapeHtml(role['name'] || 'N/A')}
-                                            ${isFromParentBU && buName ? `<span class="business-unit-tag parent-bu" style="margin-left: 8px;" title="From parent business unit">${escapeHtml(buName)}</span>` : ''}
-                                        </td>
+                                        <td>${escapeHtml(role['name'] || 'N/A')}</td>
                                     </tr>
-                                `;
-    }).join('')}
+                                `).join('')}
                             </tbody>
                         </table>
                     ` : '<div class="empty-message">All available roles assigned</div>'}

@@ -609,14 +609,6 @@ header h1 {
     color: var(--primary-color);
 }
 
-/* Parent BU tag for roles from parent business units */
-.business-unit-tag.parent-bu {
-    background-color: #fff4e5;
-    color: #8a5500;
-    border: 1px solid #ffd699;
-    font-size: 0.8em;
-}
-
 .loading-indicator {
     text-align: center;
     padding: 40px;
